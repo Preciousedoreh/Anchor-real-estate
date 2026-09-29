@@ -10,7 +10,7 @@
 
 export const society = {
   name: "Anchor Real Estate Group",
-  kind: "Multipurpose Cooperative Society",
+  kind: "Multipurpose Cooperative Society Limited",
   tagline: "Building Shared Prosperity Through Real Estate",
   location: "Abuja, Federal Capital Territory, Nigeria",
   established: "2026",
@@ -18,15 +18,114 @@ export const society = {
   bylaws: "FCTA By-Laws No. R11913",
 } as const;
 
-export const navigation = [
-  { id: "at-a-glance", label: "At a Glance" },
-  { id: "vision", label: "Vision" },
-  { id: "governance", label: "Governance" },
-  { id: "membership", label: "Membership" },
-  { id: "services", label: "Services" },
-  { id: "outlook", label: "Outlook" },
-  { id: "join", label: "How to Join" },
-] as const;
+/* ── Site navigation ──────────────────────────────────────────────── */
+
+/**
+ * Every entry is a section id on the landing page. The header prefixes them
+ * with "/" on other routes, so the same list works site-wide.
+ */
+export type NavLink = { id: string; label: string; description?: string };
+
+export type NavMenu = {
+  key: string;
+  label: string;
+  title: string;
+  summary: string;
+  items: NavLink[];
+};
+
+export type NavItem = ({ type: "link" } & NavLink) | ({ type: "menu" } & NavMenu);
+
+export const siteNav: NavItem[] = [
+  { type: "link", id: "homepath", label: "HomePath" },
+  { type: "link", id: "pathways", label: "Pathways" },
+  {
+    type: "menu",
+    key: "platform",
+    label: "Platform",
+    title: "The Anchor platform",
+    summary:
+      "The tools that turn a monthly contribution into verified, documented ownership.",
+    items: [
+      {
+        id: "anchorscore",
+        label: "AnchorScore™",
+        description: "Credit profiles for earners without payslips",
+      },
+      {
+        id: "property-dna",
+        label: "Property DNA™",
+        description: "Verified title, build progress and costs",
+      },
+      {
+        id: "pool-visualizer",
+        label: "Slot Pool",
+        description: "All 1,000,000 ownership slots, in the open",
+      },
+      {
+        id: "circles",
+        label: "Ownership Circles™",
+        description: "Buy together with family or colleagues",
+      },
+      {
+        id: "marketplace",
+        label: "Reverse Bidding",
+        description: "Developers compete to build for members",
+      },
+      {
+        id: "bulkbuy",
+        label: "BulkBuy™",
+        description: "Member pricing on materials and fittings",
+      },
+      {
+        id: "exchange",
+        label: "Property Exchange™",
+        description: "Transfer slots within the membership",
+      },
+    ],
+  },
+  {
+    type: "menu",
+    key: "about",
+    label: "About",
+    title: "The Society",
+    summary:
+      "A member-owned multipurpose cooperative, registered and governed in the FCT.",
+    items: [
+      {
+        id: "at-a-glance",
+        label: "At a glance",
+        description: "The Society's key figures",
+      },
+      {
+        id: "vision",
+        label: "Vision & values",
+        description: "What the Society stands for",
+      },
+      {
+        id: "governance",
+        label: "Governance",
+        description: "Executive committee and trustees",
+      },
+      {
+        id: "membership",
+        label: "Membership & fees",
+        description: "Slots, holding limits and dues",
+      },
+      {
+        id: "services",
+        label: "Products & services",
+        description: "Eight lines of cooperative activity",
+      },
+      {
+        id: "outlook",
+        label: "Target market",
+        description: "Who we serve and how we expand",
+      },
+    ],
+  },
+  { type: "link", id: "join", label: "How to join" },
+];
 
 /* ── 01 · At a Glance ─────────────────────────────────────────────── */
 
@@ -288,7 +387,7 @@ export const offices = [
 
 export const phones = ["+234 902 525 0026", "+234 803 612 5057"];
 
-export const email = { address: "babdayo111@gmail.com", provisional: true };
+export const email = { address: "info@anchorcooperativeltd.com", provisional: false };
 
 export const bankers = [
   { name: "First City Monument Bank", short: "FCMB" },

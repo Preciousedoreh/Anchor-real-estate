@@ -1,5 +1,9 @@
+import { Types } from "mongoose";
 import nodemailer, { type Transporter } from "nodemailer";
 import type { EnquiryDoc } from "./models/Enquiry";
+import { MailMessage } from "./models/MailMessage";
+import { recordAudit } from "./models/AuditLog";
+import { connectDb } from "./db";
 import { SLOT_PRICE_KOBO } from "./constants";
 import { formatNaira, formatNumber } from "./money";
 
@@ -15,24 +19,43 @@ import { formatNaira, formatNumber } from "./money";
 
 let cached: Transporter | null = null;
 
+function cleanHost(host: string | undefined): string | undefined {
+  if (!host) return undefined;
+  let cleaned = host.trim().replace(/^https?:\/\//i, "").replace(/^\/\//, "").replace(/\/.*$/, "");
+  if (cleaned.toLowerCase() === "resend.com") {
+    cleaned = "smtp.resend.com";
+  }
+  return cleaned;
+}
+
+export function resendApiKey(): string | undefined {
+  if (process.env.RESEND_API_KEY?.trim()) return process.env.RESEND_API_KEY.trim();
+  if (process.env.SMTP_PASS?.trim().startsWith("re_")) return process.env.SMTP_PASS.trim();
+  return undefined;
+}
+
 export function isMailConfigured(): boolean {
-  return Boolean(process.env.SMTP_HOST && process.env.MAIL_FROM);
+  return Boolean(
+    (resendApiKey() && process.env.MAIL_FROM) ||
+      (process.env.SMTP_HOST && process.env.MAIL_FROM),
+  );
 }
 
 function transporter(): Transporter {
   if (cached) return cached;
 
+  const host = cleanHost(process.env.SMTP_HOST);
   const port = Number(process.env.SMTP_PORT ?? 587);
 
   cached = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
+    host,
     port,
     // 465 is implicit TLS; 587 upgrades via STARTTLS.
     secure: process.env.SMTP_SECURE
       ? process.env.SMTP_SECURE === "true"
       : port === 465,
     auth: process.env.SMTP_USER
-      ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+      ? { user: process.env.SMTP_USER.trim(), pass: process.env.SMTP_PASS?.trim() }
       : undefined,
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
@@ -40,6 +63,95 @@ function transporter(): Transporter {
   });
 
   return cached;
+}
+
+export function cleanFromAddress(raw: string | undefined): string {
+  const FALLBACK = "Anchor Real Estate Group <onboarding@resend.dev>";
+  if (!raw) return FALLBACK;
+
+  // Strip ALL quote characters everywhere, then trim
+  const s = raw.replace(/["""''`]/g, "").trim();
+
+  // Extract email from angle brackets: Name <email@domain>
+  const angleMatch = s.match(/^(.*?)\s*<\s*([^<>\s]+@[^<>\s]+)\s*>$/);
+  if (angleMatch) {
+    const name = angleMatch[1].trim();
+    const email = angleMatch[2].trim();
+    return name ? `${name} <${email}>` : email;
+  }
+
+  // Bare email: user@domain.com
+  if (/^[^\s<>]+@[^\s<>]+\.[^\s<>]+$/.test(s)) {
+    return s;
+  }
+
+  // Nothing valid — return the fallback
+  return FALLBACK;
+}
+
+export function cleanEmailAddress(addr: string | undefined): string | undefined {
+  if (!addr) return undefined;
+  const s = addr.replace(/["""''`]/g, "").trim();
+  const match = s.match(/<\s*([^<>\s]+@[^<>\s]+)\s*>/);
+  if (match) return match[1].trim();
+  if (/^[^\s<>]+@[^\s<>]+$/.test(s)) return s;
+  return undefined;
+}
+
+function cleanReplyTo(addr: string | undefined): string | undefined {
+  if (!addr) return undefined;
+  return addr.replace(/["""''`]/g, "").trim() || undefined;
+}
+
+type SendParams = {
+  from: string;
+  to: string;
+  replyTo?: string;
+  subject: string;
+  text: string;
+  html: string;
+};
+
+async function sendMailMessage(params: SendParams): Promise<void> {
+  const from = cleanFromAddress(params.from);
+  const to = params.to.trim();
+  const replyTo = cleanReplyTo(params.replyTo);
+
+  console.log("[mail] sending — raw from:", JSON.stringify(params.from), "→ cleaned:", JSON.stringify(from), "to:", to);
+
+  const apiKey = resendApiKey();
+  if (apiKey) {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: [to],
+        reply_to: replyTo ? [replyTo] : undefined,
+        subject: params.subject,
+        text: params.text,
+        html: params.html,
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Resend HTTP ${res.status}: ${body}`);
+    }
+    return;
+  }
+
+  await transporter().sendMail({
+    from,
+    to,
+    replyTo,
+    subject: params.subject,
+    text: params.text,
+    html: params.html,
+  });
 }
 
 /** Only used by tests, which stand up a throwaway SMTP server per run. */
@@ -54,7 +166,8 @@ export function siteUrl(): string {
 }
 
 export function secretariatAddress(): string | undefined {
-  return process.env.SECRETARIAT_EMAIL ?? process.env.MAIL_FROM;
+  const raw = process.env.SECRETARIAT_EMAIL ?? process.env.MAIL_FROM;
+  return cleanEmailAddress(raw);
 }
 
 type Mail = { subject: string; text: string; html: string };
@@ -71,7 +184,7 @@ const BRAND = {
 };
 
 /** Email clients strip <style>, so everything here is inlined. */
-function shell(heading: string, body: string): string {
+export function shell(heading: string, body: string): string {
   return `<!doctype html>
 <html lang="en"><body style="margin:0;padding:0;background:${BRAND.paper};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.paper};padding:32px 16px;">
@@ -85,7 +198,7 @@ function shell(heading: string, body: string): string {
     ${body}
   </td></tr>
   <tr><td style="padding:20px 32px;border-top:1px solid ${BRAND.rule};font:400 12px/1.6 'Helvetica Neue',Arial,sans-serif;color:${BRAND.soft};">
-    Anchor Real Estate Group — Multipurpose Cooperative Society<br>
+    Anchor Real Estate Group — Multipurpose Cooperative Society Limited<br>
     124 Sherifat Adenusi Crescent, ACO Estate, Life Camp, Abuja–FCT<br>
     Tier 1 Cooperative · FCTA By-Laws No. R11913
   </td></tr>
@@ -154,7 +267,7 @@ export function applicantReceipt(enquiry: EnquiryDoc): Mail {
 
   const text = `Dear ${enquiry.firstName},
 
-Thank you for registering your interest in Anchor Real Estate Group, a multipurpose cooperative society in Abuja.
+Thank you for registering your interest in Anchor Real Estate Group, a multipurpose cooperative society limited in Abuja.
 
 We have recorded your enquiry under reference ${enquiry.reference}. A member of the Secretariat will be in touch.
 
@@ -172,7 +285,7 @@ Anchor Real Estate Group
   const html = shell(
     "We have your enquiry",
     `<p style="margin:0 0 16px;">Dear ${escapeHtml(enquiry.firstName)},</p>
-<p style="margin:0 0 16px;">Thank you for registering your interest in Anchor Real Estate Group, a multipurpose cooperative society in Abuja. Your enquiry is recorded under reference <strong>${escapeHtml(enquiry.reference)}</strong>, and a member of the Secretariat will be in touch.</p>
+<p style="margin:0 0 16px;">Thank you for registering your interest in Anchor Real Estate Group, a multipurpose cooperative society limited in Abuja. Your enquiry is recorded under reference <strong>${escapeHtml(enquiry.reference)}</strong>, and a member of the Secretariat will be in touch.</p>
 <p style="margin:24px 0 0;font:600 11px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:${BRAND.gold};">What you submitted</p>
 ${rows(pairs)}
 <p style="margin:24px 0 0;font:600 11px/1.4 'Helvetica Neue',Arial,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:${BRAND.gold};">What happens next</p>
@@ -239,7 +352,7 @@ export async function sendEnquiryMail(enquiry: EnquiryDoc): Promise<SendOutcome>
   const results = await Promise.allSettled([
     (async () => {
       const message = applicantReceipt(enquiry);
-      await transporter().sendMail({
+      await sendMailMessage({
         from,
         to: enquiry.email,
         replyTo: secretariat,
@@ -251,7 +364,7 @@ export async function sendEnquiryMail(enquiry: EnquiryDoc): Promise<SendOutcome>
     (async () => {
       if (!secretariat) return "skipped";
       const message = secretariatNotice(enquiry);
-      await transporter().sendMail({
+      await sendMailMessage({
         from,
         to: secretariat,
         replyTo: `${enquiry.firstName} ${enquiry.lastName} <${enquiry.email}>`,
@@ -290,3 +403,154 @@ export async function sendEnquiryMail(enquiry: EnquiryDoc): Promise<SendOutcome>
 function reasonOf(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
 }
+
+export type SendCustomMailParams = {
+  to: string | string[];
+  subject: string;
+  bodyText: string;
+  bodyHtml?: string;
+  replyTo?: string;
+  from?: string;
+  memberId?: string;
+  enquiryId?: string;
+  adminUser?: {
+    id: string;
+    name: string;
+    email: string;
+    role?: string;
+  };
+  inReplyTo?: string;
+};
+
+export type CustomMailResult = {
+  success: boolean;
+  messageDocId?: string;
+  error?: string;
+  simulated?: boolean;
+};
+
+export async function sendCustomMail(
+  params: SendCustomMailParams,
+): Promise<CustomMailResult> {
+  await connectDb();
+
+  const recipients = Array.isArray(params.to)
+    ? params.to.map((t) => t.trim()).filter(Boolean)
+    : [params.to.trim()];
+
+  if (recipients.length === 0) {
+    return { success: false, error: "Recipient email is required" };
+  }
+
+  const rawFrom =
+    params.from ||
+    process.env.MAIL_FROM ||
+    "Anchor Real Estate Group <onboarding@resend.dev>";
+  const fromFormatted = cleanFromAddress(rawFrom);
+  const fromClean = cleanEmailAddress(fromFormatted) || "secretariat@anchorrealestategroup.ng";
+
+  const toCleanList = recipients
+    .map((r) => cleanEmailAddress(r) || r)
+    .filter(Boolean);
+
+  const replyTo = cleanReplyTo(
+    params.replyTo ||
+      secretariatAddress() ||
+      params.adminUser?.email ||
+      fromClean,
+  );
+
+  const html =
+    params.bodyHtml ||
+    shell(
+      escapeHtml(params.subject),
+      params.bodyText
+        .split(/\n\n+/)
+        .map(
+          (para) =>
+            `<p style="margin:0 0 16px;white-space:pre-wrap;">${escapeHtml(para.trim())}</p>`,
+        )
+        .join(""),
+    );
+
+  const configured = isMailConfigured();
+  let status: "sent" | "failed" | "simulated" = configured ? "sent" : "simulated";
+  let errorMessage: string | undefined;
+
+  if (configured) {
+    try {
+      // Send sequentially or per recipient to guarantee clean headers
+      for (const recipient of recipients) {
+        await sendMailMessage({
+          from: fromFormatted,
+          to: recipient,
+          replyTo,
+          subject: params.subject,
+          text: params.bodyText,
+          html,
+        });
+      }
+    } catch (err) {
+      status = "failed";
+      errorMessage = reasonOf(err);
+      console.error("[mail] sendCustomMail failed:", errorMessage);
+    }
+  } else {
+    console.warn(
+      "[mail] SMTP/Resend not configured — recording email as simulated",
+    );
+  }
+
+  try {
+    const doc = await MailMessage.create({
+      direction: "outbound",
+      from: fromFormatted,
+      fromEmail: fromClean,
+      to: recipients,
+      toEmail: toCleanList,
+      replyTo,
+      subject: params.subject,
+      bodyText: params.bodyText,
+      bodyHtml: html,
+      status,
+      errorMessage,
+      isRead: true,
+      member: params.memberId ? new Types.ObjectId(params.memberId) : undefined,
+      enquiry: params.enquiryId ? new Types.ObjectId(params.enquiryId) : undefined,
+      inReplyTo: params.inReplyTo ? new Types.ObjectId(params.inReplyTo) : undefined,
+      sentBy: params.adminUser
+        ? {
+            id: new Types.ObjectId(params.adminUser.id),
+            name: params.adminUser.name,
+            email: params.adminUser.email,
+          }
+        : undefined,
+    });
+
+    if (params.adminUser) {
+      await recordAudit({
+        actor: new Types.ObjectId(params.adminUser.id),
+        actorName: params.adminUser.name,
+        actorRole: params.adminUser.role || "admin",
+        action: "send_mail",
+        entity: params.memberId ? "member" : "admin_user",
+        entityId: String(doc._id),
+        summary: `Sent email "${params.subject}" to ${recipients.join(", ")} (${status})`,
+      });
+    }
+
+    return {
+      success: status !== "failed",
+      messageDocId: String(doc._id),
+      error: errorMessage,
+      simulated: status === "simulated",
+    };
+  } catch (dbErr) {
+    console.error("[mail] failed to save MailMessage doc:", dbErr);
+    return {
+      success: false,
+      error: `Mail dispatch finished with ${status}, but recording failed: ${reasonOf(dbErr)}`,
+    };
+  }
+}
+

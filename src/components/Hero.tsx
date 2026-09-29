@@ -1,111 +1,227 @@
-import Link from "next/link";
 import { Crest } from "./Crest";
-import { society } from "@/lib/content";
+import { ButtonAnchor } from "./ui/Button";
+import { cn } from "./ui/cn";
+import { Icon, type IconName } from "./ui/Icons";
+import { bankers, society } from "@/lib/content";
 
-const stamps = [
-  { label: "Established", value: society.established },
+const credentials = [
+  { label: "Registration", value: society.bylaws },
   { label: "Classification", value: society.tier },
-  { label: "By-Laws", value: "No. R11913" },
+  { label: "Established", value: `${society.established} · Abuja, FCT` },
 ];
+
+const stages: {
+  id: string;
+  product: string;
+  title: string;
+  body: string;
+  icon: IconName;
+}[] = [
+  {
+    id: "start",
+    product: "Anchor START™",
+    title: "I want to start saving",
+    body: "From ₦10,000 a month into ₦5,000 slots",
+    icon: "coins",
+  },
+  {
+    id: "own",
+    product: "Anchor OWN™",
+    title: "I'm ready to buy",
+    body: "Deposit plus cooperative financing",
+    icon: "key",
+  },
+  {
+    id: "live",
+    product: "Anchor LIVE™",
+    title: "I want rent-to-own",
+    body: "Convert lease payments into equity",
+    icon: "home",
+  },
+  {
+    id: "grow",
+    product: "Anchor GROW™",
+    title: "I want to grow wealth",
+    body: "High-yield cooperative asset pooling",
+    icon: "trending",
+  },
+];
+
+function FloatingFigure({
+  value,
+  label,
+  className,
+}: {
+  value: string;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "absolute rounded-2xl border border-white/10 bg-forest-900/75 px-4 py-3 shadow-[0_18px_40px_-18px_rgb(0_0_0/0.8)] backdrop-blur-md",
+        className,
+      )}
+    >
+      <p className="figure-num text-[1.375rem] leading-none text-gold-300">{value}</p>
+      <p className="mt-1.5 text-[0.75rem] font-medium whitespace-nowrap text-paper/65">
+        {label}
+      </p>
+    </div>
+  );
+}
 
 export function Hero() {
   return (
-    <section
-      id="top"
-      className="relative overflow-hidden bg-forest-950 text-paper"
-    >
-      {/* Ledger rules — structural texture rather than decoration. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(90deg, rgba(217,190,114,0.05) 0px, rgba(217,190,114,0.05) 1px, transparent 1px, transparent 104px)",
-        }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundImage:
-            "radial-gradient(120% 85% at 12% -10%, rgba(43,115,88,0.42), transparent 58%)",
-        }}
-      />
+    <section id="top" className="relative isolate overflow-hidden bg-forest-950 text-paper">
+      {/* Ground: forest glow from the upper left, warmth behind the seal, and
+          fine ledger rules fading out toward the edges. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute inset-0 bg-[radial-gradient(110%_80%_at_8%_-5%,rgb(43_115_88/0.5),transparent_58%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(45%_45%_at_80%_42%,rgb(217_190_114/0.13),transparent_70%)]" />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage:
+              "linear-gradient(to right, rgb(217 190 114 / 0.055) 1px, transparent 1px)",
+            backgroundSize: "96px 100%",
+            maskImage: "radial-gradient(90% 70% at 50% 30%, black, transparent 85%)",
+            WebkitMaskImage: "radial-gradient(90% 70% at 50% 30%, black, transparent 85%)",
+          }}
+        />
+        <div className="absolute inset-x-0 bottom-0 h-px bg-linear-to-r from-transparent via-gold-400/40 to-transparent" />
+      </div>
 
-      {/* Document edge, echoing the Society's printed material. */}
-      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-[3px] bg-gold-500" />
-      <div aria-hidden="true" className="absolute inset-x-0 top-[5px] h-px bg-gold-500/40" />
-
-      <div className="shell relative flex min-h-[100svh] flex-col justify-center pt-28 pb-16 md:pt-32 md:pb-20">
-        <div className="grid items-center gap-14 lg:grid-cols-12 lg:gap-16">
+      <div className="shell pt-28 pb-16 sm:pt-32 lg:pt-44 lg:pb-20">
+        <div className="grid grid-cols-1 items-center gap-14 lg:grid-cols-12 lg:gap-10">
           <div className="lg:col-span-7">
-            <p className="label text-gold-400">
-              {society.kind}
+            <p className="inline-flex items-center gap-2.5 rounded-full border border-gold-400/25 bg-white/[0.04] py-1.5 pr-4 pl-2.5 text-[0.75rem] font-semibold tracking-[0.12em] text-gold-300 uppercase">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-gold-400 opacity-50" />
+                <span className="relative inline-flex size-2 rounded-full bg-gold-400" />
+              </span>
+              The housing &amp; wealth operating system
             </p>
 
-            <h1 className="font-display mt-6 text-[2.75rem] leading-[1.03] font-normal tracking-[-0.025em] text-balance sm:text-[3.75rem] lg:text-[4.5rem]">
-              {society.name}
+            <h1 className="font-display mt-7 text-[2.625rem] leading-[1.02] font-normal tracking-[-0.03em] text-balance sm:text-[3.5rem] lg:text-[4rem] xl:text-[4.5rem]">
+              Your income shouldn&apos;t decide whether you can{" "}
+              <em className="text-gold-300 italic">own a home.</em>
             </h1>
 
-            <p className="font-display mt-6 text-[1.375rem] leading-[1.4] text-gold-300 italic sm:text-[1.625rem]">
-              “{society.tagline}”
+            <p className="mt-7 max-w-xl text-[1.125rem] leading-[1.6] text-pretty text-paper/85 sm:text-[1.25rem]">
+              Anchor turns what you can afford today into a structured pathway to
+              what you can own tomorrow.
+            </p>
+            <p className="mt-4 max-w-xl text-[1rem] leading-[1.7] text-pretty text-paper/60">
+              You don&apos;t need to be wealthy, formally salaried or mortgage-ready to
+              begin. Whether you are a market trader, artisan, consultant or corporate
+              worker, Anchor builds your housing capacity progressively.
             </p>
 
-            <div aria-hidden="true" className="mt-9 h-px w-24 bg-gold-500/50" />
-
-            <p className="mt-9 max-w-xl text-[1.0625rem] leading-[1.7] text-pretty text-paper/75">
-              A member-owned cooperative society in Abuja, mobilising ₦5 billion
-              of member capital into housing, tourism, warehousing and financial
-              inclusion across the Federal Capital Territory — and giving every
-              member a documented stake in what that capital builds.
-            </p>
-
-            <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:items-center">
-              <Link
-                href="/join"
-                className="label bg-gold-400 px-7 py-4 text-center text-forest-950 transition-colors duration-200 hover:bg-gold-300"
-              >
-                Become a Member
-              </Link>
-              <a
-                href="#membership"
-                className="label border border-paper/25 px-7 py-4 text-center text-paper transition-colors duration-200 hover:border-paper/60 hover:bg-paper/5"
-              >
-                Membership Terms
-              </a>
+            <div className="mt-9 flex flex-col gap-3 xs:flex-row xs:flex-wrap xs:items-center">
+              <ButtonAnchor href="#homepath" size="lg" arrow>
+                Check my HomePath™
+              </ButtonAnchor>
+              <ButtonAnchor href="#pathways" size="lg" variant="inverse">
+                Explore ownership pathways
+              </ButtonAnchor>
             </div>
+
+            <dl className="mt-12 grid max-w-2xl grid-cols-1 gap-x-8 gap-y-5 border-t border-white/10 pt-7 xs:grid-cols-3">
+              {credentials.map((item) => (
+                <div key={item.label}>
+                  <dt className="text-[0.75rem] font-medium tracking-[0.06em] text-paper/50 uppercase">
+                    {item.label}
+                  </dt>
+                  <dd className="mt-1.5 text-[0.9375rem] font-medium text-paper/90">
+                    {item.value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
           </div>
 
           <div className="lg:col-span-5">
-            <div className="flex flex-col items-center gap-10 lg:items-end">
-              <div className="relative flex items-center justify-center">
-                <div
-                  aria-hidden="true"
-                  className="absolute h-[17rem] w-[17rem] rounded-full border border-gold-400/15 sm:h-[21rem] sm:w-[21rem]"
+            <div className="relative mx-auto aspect-square w-full max-w-[21rem] sm:max-w-[26rem]">
+              <div aria-hidden="true" className="absolute inset-0 rounded-full border border-gold-400/10" />
+              <div aria-hidden="true" className="absolute inset-[9%] rounded-full border border-gold-400/15" />
+              <div aria-hidden="true" className="absolute inset-[18%] rounded-full border border-dashed border-gold-400/20" />
+              <div aria-hidden="true" className="absolute inset-[24%] rounded-full bg-gold-400/10 blur-3xl" />
+
+              <div className="absolute inset-[22%] flex items-center justify-center">
+                <Crest
+                  size={240}
+                  eager
+                  className="size-full rounded-full shadow-[0_0_0_1px_rgb(217_190_114/0.35),0_30px_60px_-20px_rgb(0_0_0/0.8)]"
                 />
-                <Crest size={208} priority className="h-40 w-40 sm:h-52 sm:w-52" />
               </div>
 
-              <dl className="grid w-full max-w-sm grid-cols-3 border-t border-gold-400/20">
-                {stamps.map((stamp) => (
-                  <div
-                    key={stamp.label}
-                    className="border-r border-gold-400/20 px-3 py-5 last:border-r-0"
-                  >
-                    <dt className="label-sm text-paper/55">{stamp.label}</dt>
-                    <dd className="mt-2 text-[0.8125rem] leading-snug text-gold-300">
-                      {stamp.value}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
+              <FloatingFigure value="₦5,000" label="Price per ownership slot" className="top-[6%] -left-1 sm:left-0" />
+              <FloatingFigure value="1,000,000" label="Slots in the pool" className="right-0 bottom-[20%] sm:-right-2" />
+              <FloatingFigure value="₦5.0bn" label="Mobilisation target" className="bottom-[2%] left-[6%]" />
+            </div>
+
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[0.8125rem] text-paper/55">
+              <span className="font-medium tracking-[0.06em] uppercase">Bankers</span>
+              {bankers.map((bank) => (
+                <span
+                  key={bank.short}
+                  title={bank.name}
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 font-semibold text-paper/80"
+                >
+                  {bank.short}
+                </span>
+              ))}
             </div>
           </div>
         </div>
 
-        <p className="label-sm mt-16 text-paper/55 md:mt-20">
-          {society.location}
-        </p>
+        {/* Where the visitor stands today — each routes to its pathway. */}
+        <div className="mt-16 lg:mt-20">
+          <div className="flex items-end justify-between gap-4">
+            <h2 className="eyebrow text-gold-400">Choose where you are today</h2>
+            <a
+              href="#homepath"
+              className="hidden items-center gap-1.5 text-[0.875rem] font-medium text-paper/65 transition-colors hover:text-paper sm:inline-flex"
+            >
+              Not sure? Take the assessment
+              <Icon name="arrow-right" className="size-4" />
+            </a>
+          </div>
+          <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {stages.map((stage, index) => (
+              <li key={stage.id}>
+                <a
+                  href={`#pathway-${stage.id}`}
+                  className="group flex h-full flex-col rounded-2xl border border-white/10 bg-white/[0.035] p-5 transition-[background-color,border-color,transform] duration-300 hover:-translate-y-0.5 hover:border-gold-400/45 hover:bg-white/[0.06]"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="flex size-10 items-center justify-center rounded-xl bg-gold-400/10 text-gold-300 ring-1 ring-gold-400/20 ring-inset">
+                      <Icon name={stage.icon} className="size-5" />
+                    </span>
+                    <span className="text-[0.75rem] font-semibold tracking-[0.1em] text-paper/40 tnum">
+                      0{index + 1}
+                    </span>
+                  </div>
+                  <p className="mt-5 text-[0.75rem] font-semibold tracking-[0.1em] text-gold-400 uppercase">
+                    {stage.product}
+                  </p>
+                  <p className="font-display mt-1.5 text-[1.3125rem] leading-snug text-paper">
+                    {stage.title}
+                  </p>
+                  <p className="mt-1.5 text-[0.875rem] leading-snug text-paper/60">{stage.body}</p>
+                  <span className="mt-auto inline-flex items-center gap-1.5 pt-5 text-[0.8125rem] font-semibold text-gold-300">
+                    See the pathway
+                    <Icon
+                      name="arrow-right"
+                      className="size-4 transition-transform duration-200 group-hover:translate-x-1"
+                    />
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
     </section>
   );
